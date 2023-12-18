@@ -54,6 +54,9 @@ class ModelParams(ParamGroup):
         self._white_background = False
         self.data_device = "cuda"
         self.eval = False
+        self.max_hashmap = 19
+        self.rvq_size = 64
+        self.rvq_num = 6
         super().__init__(parser, "Loading Parameters", sentinel)
 
     def extract(self, args):
@@ -88,6 +91,10 @@ class OptimizationParams(ParamGroup):
         self.densify_grad_threshold = 0.0002
         self.mask_prune_iter = 1_000
         self.rvq_iter = 29_000
+        self.mask_lr = 0.01
+        self.net_lr = 0.01
+        self.net_lr_step = [5_000, 15_000, 25_000]
+        self.lambda_mask = 0.0005
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):

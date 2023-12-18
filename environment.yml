@@ -1,4 +1,4 @@
-name: gaussian_splatting
+name: c3dgs
 channels:
   - pytorch
   - conda-forge

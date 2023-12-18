@@ -215,13 +215,6 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
     
-    parser.add_argument('--mask_lr', type=float, default=0.01)
-    parser.add_argument('--net_lr', type=float, default=0.01)
-    parser.add_argument("--net_lr_step", nargs="+", type=int, default=[5_000, 15_000, 25_000])
-    parser.add_argument('--lambda_mask', type=float, default=0.0005)
-    parser.add_argument('--max_hashmap', type=int, default=19)
-    parser.add_argument('--rvq_size', type=int, default=64)
-    parser.add_argument('--rvq_num', type=int, default=6)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     
@@ -229,13 +222,6 @@ if __name__ == "__main__":
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
-    op.mask_lr = args.mask_lr
-    op.net_lr = args.mask_lr
-    op.net_lr_step = args.net_lr_step
-    op.lambda_mask = args.lambda_mask
-    lp.max_hashmap = args.max_hashmap
-    lp.rvq_size = args.rvq_size
-    lp.rvq_num = args.rvq_num
     
     # Start GUI server, configure and run training
     network_gui.init(args.ip, args.port)
