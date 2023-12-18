@@ -6,7 +6,7 @@
 Our code is based on [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting).
 
 ## Method Overview
-<img src="https://maincold2.github.io/c3dgs/images/fig_demo.jpg" width="2048" />
+<img src="https://maincold2.github.io/c3dgs/images/fig_demo.jpg" width="1024" />
 
 We place a specific emphasis on two key objectives: reducing the number of Gaussian points without sacrificing performance and compressing the Gaussian attributes. To this end, we propose a learnable mask strategy that significantly reduces the number of Gaussians while preserving high performance. In addition, we propose a compact but effective representation of view-dependent color by employing a grid-based neural field rather than relying on spherical harmonics. Finally, we learn codebooks to compactly represent the geometric attributes of Gaussian by vector quantization.
 
