@@ -53,7 +53,7 @@ Applying post-processings for compression.
   #### --rvq_size
   Codebook size in each R-VQ stage, 64 by default 
   #### --rvq_num
-  The number of R-VQ stage, 6 by default
+  The number of R-VQ stages, 6 by default
 
   #### Refer to other arguments of [3DGS](https://github.com/graphdeco-inria/gaussian-splatting).
 
@@ -75,7 +75,7 @@ python metrics.py -m <path to trained model>
 ```
 
 ## 3DGS Viewer
-The original SIBR interative viewer of 3DGS can not support neural fields for view-dependent color. We would like to support and update this shortly if possible. 
+The original SIBR interactive viewer of 3DGS can not support neural fields for view-dependent color. We would like to support and update this shortly if possible. 
 
 Currently, to use the viewer, you have two options: either bypass the neural field for view-dependent color by only applying masking and the geometry codebook, or train neural fields to represent spherical harmonics without inputting view direction (slightly lower performance). After this, you can save the output in a PLY format, similar to 3DGS.
 
