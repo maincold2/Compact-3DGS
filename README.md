@@ -6,9 +6,17 @@
 Our code is based on [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting).
 
 ## Method Overview
-<img src="https://maincold2.github.io/c3dgs/images/fig_demo.jpg" width="1024" />
+<img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/fig_demo.jpg?raw=true" />
 
 We place a specific emphasis on two key objectives: reducing the number of Gaussian points without sacrificing performance and compressing the Gaussian attributes. To this end, we propose a learnable mask strategy that significantly reduces the number of Gaussians while preserving high performance. In addition, we propose a compact but effective representation of view-dependent color by employing a grid-based neural field rather than relying on spherical harmonics. Finally, we learn codebooks to compactly represent the geometric attributes of Gaussian by vector quantization.
+
+### Update
+We additionally implement straightforward post-processing techniques on the model attributes: 1) Applying 8-bit min-max quantization to opacity and hash grid parameters. 2) Pruning hash grid parameters with values below 0.1. 3) Applying Huffman encoding on the quantized opacity and hash parameters, and R-VQ indices.
+
+As a result, our model is further downsized by over 40 \% regardless of dataset, achieving more than 25x compression from 3DGS, while maintaining high performance.
+
+Mip-NeRF 360 result:
+<img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/size_pp.png?raw=true" />
 
 ## Setup
 
@@ -27,9 +35,10 @@ We used Mip-NeRF 360, Tanks & Temples, Deep Blending, and NeRF synthetic dataset
 ```shell
 python train.py -s <path to COLMAP> --eval
 ```
-
+#### --comp 
+Applying post-processings for compression.
 <details>
-<summary><span style="font-weight: bold;">Command Line Arguments for train.py</span></summary>
+<summary><span style="font-weight: bold;">More Command Line Arguments for train.py</span></summary>
 
   #### --lambda_mask
   Weight of masking loss to control ma the number of Gaussians masking control factor, 0.01 by default

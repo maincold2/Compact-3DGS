@@ -24,6 +24,9 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 from vector_quantize_pytorch import VectorQuantize, ResidualVQ
 import tinycudann as tcnn
 
+from dahuffman import HuffmanCodec
+import math
+
 class GaussianModel:
 
     def setup_functions(self):
@@ -423,15 +426,70 @@ class GaussianModel:
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
         torch.cuda.empty_cache()
-        
-    def final_prune(self):
+
+    def post_quant(self, param, prune=False):
+        max_val = torch.amax(param)
+        min_val = torch.amin(param)
+        param = (param - min_val)/(max_val - min_val)
+        quant = torch.round(param * 255.0) / 255.0
+        out = (max_val - min_val)*quant + min_val
+        if prune:
+            quant = quant*(torch.abs(out) > 0.1)
+            out = out*(torch.abs(out) > 0.1)
+        return torch.nn.Parameter(out), quant
+    
+    def huffman_encode(self, param):
+        input_code_list = param.view(-1).tolist()
+        unique, counts = np.unique(input_code_list, return_counts=True)
+        num_freq = dict(zip(unique, counts))
+
+        codec = HuffmanCodec.from_data(input_code_list)
+
+        sym_bit_dict = {}
+        for k, v in codec.get_code_table().items():
+            sym_bit_dict[k] = v[0]
+        total_bits = 0
+        for num, freq in num_freq.items():
+            total_bits += freq * sym_bit_dict[num]
+        total_mb = total_bits/8/10**6
+        return total_mb
+
+    def final_prune(self, compress=False):
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
         self._xyz = self._xyz.clone().detach().half().float()
         self._opacity = self._opacity.clone().detach().half().float()
-        self._scaling = self.vq_scale(self.get_scaling.unsqueeze(1))[0].squeeze()
-        self._rotation = self.vq_rot(self.get_rotation.unsqueeze(1))[0].squeeze()
+        
+        self._scaling, sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))
+        self._rotation, rot_idx, _ = self.vq_rot(self.get_rotation.unsqueeze(1))
+        self._scaling = self._scaling.squeeze()
+        self._rotation = self._rotation.squeeze()
+        
+        position_mb = self._xyz.shape[0]*3*16/8/10**6
+        scale_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6
+        rotation_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6
+        opacity_mb = self._xyz.shape[0]*16/8/10**6
+        hash_mb = self.recolor.params.shape[0]*16/8/10**6
+        mlp_mb = self.mlp_head.params.shape[0]*16/8/10**6
+        sum_mb = position_mb+scale_mb+rotation_mb+opacity_mb+hash_mb+mlp_mb
+        
+        mb_str = "Storage\nposition: "+str(position_mb)+"\nscale: "+str(scale_mb)+"\nrotation: "+str(rotation_mb)+"\nopacity: "+str(opacity_mb)+"\nhash: "+str(hash_mb)+"\nmlp: "+str(mlp_mb)+"\ntotal: "+str(sum_mb)+" MB"
+        
+        if compress:
+            self._opacity, quant_opa = self.post_quant(self._opacity)
+            self.recolor.params, quant_hash = self.post_quant(self.recolor.params, True)
+        
+            scale_mb = self.huffman_encode(sca_idx)
+            rotation_mb = self.huffman_encode(rot_idx)
+            opacity_mb = self.huffman_encode(quant_opa)
+            hash_mb = self.huffman_encode(quant_hash)
+            mlp_mb = self.mlp_head.params.shape[0]*16/8/10**6
+            sum_mb = position_mb+scale_mb+rotation_mb+opacity_mb+hash_mb+mlp_mb
+            
+            mb_str = mb_str+"\n\nAfter PP\nposition: "+str(position_mb)+"\nscale: "+str(scale_mb)+"\nrotation: "+str(rotation_mb)+"\nopacity: "+str(opacity_mb)+"\nhash: "+str(hash_mb)+"\nmlp: "+str(mlp_mb)+"\ntotal: "+str(sum_mb)+" MB"
+        
         torch.cuda.empty_cache()
+        return mb_str
     
     def precompute(self):
         xyz = self.contract_to_unisphere(self.get_xyz.half(), torch.tensor([-1.0, -1.0, -1.0, 1.0, 1.0, 1.0], device='cuda'))

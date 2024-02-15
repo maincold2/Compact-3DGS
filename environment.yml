@@ -13,5 +13,8 @@ dependencies:
   - torchvision=0.13.1
   - tqdm
   - pip:
+    - dahuffman==0.4.1
+    - vector-quantize-pytorch==1.8.1
+    - git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
     - submodules/diff-gaussian-rasterization
     - submodules/simple-knn
