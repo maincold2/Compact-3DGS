@@ -22,6 +22,7 @@ Mip-NeRF 360 result:
 
 For installation:
 ```shell
+git clone https://github.com/maincold2/Compact-3DGS.git --recursive
 conda env create --file environment.yml
 conda activate c3dgs
 ```
