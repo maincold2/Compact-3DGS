@@ -460,7 +460,7 @@ class GaussianModel:
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
         self._xyz = self._xyz.clone().detach().half().float()
-        self._opacity = self._opacity.clone().detach().half().float()
+        self._opacity = self.get_opacity.clone().detach().half().float()
         
         self._scaling, sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))
         self._rotation, rot_idx, _ = self.vq_rot(self.get_rotation.unsqueeze(1))

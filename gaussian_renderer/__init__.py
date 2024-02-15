@@ -50,7 +50,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
-    means3D = pc.get_xyz#.half()
+    means3D = pc.get_xyz
     means2D = screenspace_points
     cov3D_precomp = None
     l_vqsca=0
@@ -58,7 +58,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     if itr == -1:
         scales = pc._scaling
         rotations = pc._rotation
-        opacity = pc.get_opacity
+        opacity = pc._opacity
         
         dir_pp = (means3D - viewpoint_camera.camera_center.repeat(means3D.shape[0], 1))
         dir_pp = dir_pp/dir_pp.norm(dim=1, keepdim=True)
