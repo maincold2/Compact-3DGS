@@ -459,9 +459,7 @@ class GaussianModel:
     def final_prune(self, compress=False):
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
-        self._xyz = self._xyz.clone().detach().half().float()
-        self._opacity = self.get_opacity.clone().detach().half().float()
-        
+        self._xyz = self._xyz.clone().half().float()
         self._scaling, sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))
         self._rotation, rot_idx, _ = self.vq_rot(self.get_rotation.unsqueeze(1))
         self._scaling = self._scaling.squeeze()
@@ -478,7 +476,7 @@ class GaussianModel:
         mb_str = "Storage\nposition: "+str(position_mb)+"\nscale: "+str(scale_mb)+"\nrotation: "+str(rotation_mb)+"\nopacity: "+str(opacity_mb)+"\nhash: "+str(hash_mb)+"\nmlp: "+str(mlp_mb)+"\ntotal: "+str(sum_mb)+" MB"
         
         if compress:
-            self._opacity, quant_opa = self.post_quant(self._opacity)
+            self._opacity, quant_opa = self.post_quant(self.get_opacity)
             self.recolor.params, quant_hash = self.post_quant(self.recolor.params, True)
         
             scale_mb = self.huffman_encode(sca_idx)
@@ -489,7 +487,8 @@ class GaussianModel:
             sum_mb = position_mb+scale_mb+rotation_mb+opacity_mb+hash_mb+mlp_mb
             
             mb_str = mb_str+"\n\nAfter PP\nposition: "+str(position_mb)+"\nscale: "+str(scale_mb)+"\nrotation: "+str(rotation_mb)+"\nopacity: "+str(opacity_mb)+"\nhash: "+str(hash_mb)+"\nmlp: "+str(mlp_mb)+"\ntotal: "+str(sum_mb)+" MB"
-        
+        else:
+            self._opacity = self.get_opacity.clone().half().float()
         torch.cuda.empty_cache()
         return mb_str
     
