@@ -466,8 +466,8 @@ class GaussianModel:
         self._rotation = self._rotation.squeeze()
         
         position_mb = self._xyz.shape[0]*3*16/8/10**6
-        scale_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6
-        rotation_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6
+        scale_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6 + 2**self.rvq_bit*self.rvq_num*3*32/8/10**6
+        rotation_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6 + 2**self.rvq_bit*self.rvq_num*4*32/8/10**6
         opacity_mb = self._xyz.shape[0]*16/8/10**6
         hash_mb = self.recolor.params.shape[0]*16/8/10**6
         mlp_mb = self.mlp_head.params.shape[0]*16/8/10**6
@@ -479,8 +479,8 @@ class GaussianModel:
             self._opacity, quant_opa = self.post_quant(self.get_opacity)
             self.recolor.params, quant_hash = self.post_quant(self.recolor.params, True)
         
-            scale_mb = self.huffman_encode(sca_idx)
-            rotation_mb = self.huffman_encode(rot_idx)
+            scale_mb = self.huffman_encode(sca_idx) + 2**self.rvq_bit*self.rvq_num*3*32/8/10**6
+            rotation_mb = self.huffman_encode(rot_idx) + 2**self.rvq_bit*self.rvq_num*4*32/8/10**6
             opacity_mb = self.huffman_encode(quant_opa)
             hash_mb = self.huffman_encode(quant_hash)
             mlp_mb = self.mlp_head.params.shape[0]*16/8/10**6
