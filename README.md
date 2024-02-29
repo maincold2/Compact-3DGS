@@ -1,4 +1,4 @@
-# Compact 3D Gaussian Representation for Radiance Field
+# Compact 3D Gaussian Representation for Radiance Field (CVPR 2024)
 ### Joo Chan Lee, Daniel Rho, Xiangyu Sun, Jong Hwan Ko, and Eunbyung Park
 
 ### [[Project Page](https://maincold2.github.io/c3dgs/)] [[Paper(arxiv)](https://arxiv.org/abs/2311.13681)]
