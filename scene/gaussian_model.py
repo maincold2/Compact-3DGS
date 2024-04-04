@@ -300,6 +300,7 @@ class GaussianModel:
     def load_model(self, path):
         if os.path.isfile(path + '_pp.npz'):
             path = path + '_pp.npz'
+            print("Loading ", path)
             load_dict = np.load(path, allow_pickle=True)
 
             codec = PrefixCodec(load_dict["huftable_opacity"].item())
@@ -332,6 +333,7 @@ class GaussianModel:
             self.mlp_head.params = nn.Parameter(torch.from_numpy(load_dict["mlp"]).cuda().half().requires_grad_(True))
         elif os.path.isfile(path + '.npz'):
             path = path + '.npz'
+            print("Loading ", path)
             load_dict = np.load(path, allow_pickle=True)
 
             scale = np.packbits(np.unpackbits(load_dict["scale"], axis=None)[:load_dict["xyz"].shape[0]*load_dict["rvq_info"][0]*load_dict["rvq_info"][1]].reshape(-1, load_dict["rvq_info"][1]), axis=-1, bitorder='little')
@@ -351,10 +353,11 @@ class GaussianModel:
             self.recolor.params = nn.Parameter(torch.from_numpy(load_dict["hash"]).cuda().half().requires_grad_(True))
             self.mlp_head.params = nn.Parameter(torch.from_numpy(load_dict["mlp"]).cuda().half().requires_grad_(True))
         else:
-            self.load_ply(path+".ply")
+            self.load_ply(path)
             
     def load_ply(self, path):
-        plydata = PlyData.read(path)
+        print("Loading ", path+".ply")
+        plydata = PlyData.read(path+".ply")
 
         xyz = np.stack((np.asarray(plydata.elements[0]["x"]),
                         np.asarray(plydata.elements[0]["y"]),
@@ -379,6 +382,8 @@ class GaussianModel:
         self._rotation = nn.Parameter(torch.tensor(rots, dtype=torch.float, device="cuda").requires_grad_(True))
 
         self.active_sh_degree = self.max_sh_degree
+
+        torch.nn.ModuleList([self.recolor, self.mlp_head]).load_state_dict(torch.load(path +".pth"))
 
     def replace_tensor_to_optimizer(self, tensor, name):
         optimizable_tensors = {}
