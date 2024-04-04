@@ -18,6 +18,11 @@ As a result, our model is further downsized by over 40 \% regardless of dataset,
 Mip-NeRF 360 result:
 <img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/size_pp.png?raw=true" />
 
+#### 4/4/2024
+We updated saving codes for the result file (.npz) reflecting the actual storage.
+With --store_npz option, the code will generate point_cloud.npz or/and point_cloud_pp.npz file according to --comp option, rather than the .ply file. The storage of these files would be almost the same as the estimations in the 'Storage' file (slightly reduced storage for point_cloud_pp.npz due to the npz compression). 
+
+
 ## Setup
 
 For installation:
@@ -38,6 +43,8 @@ python train.py -s <path to COLMAP> --eval
 ```
 #### --comp 
 Applying post-processings for compression.
+#### --store_npz 
+Storing npz file reflecting the actual storage.
 <details>
 <summary><span style="font-weight: bold;">More Command Line Arguments for train.py</span></summary>
 

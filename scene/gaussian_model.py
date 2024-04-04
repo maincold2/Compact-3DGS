@@ -25,7 +25,9 @@ from vector_quantize_pytorch import VectorQuantize, ResidualVQ
 import tinycudann as tcnn
 
 from dahuffman import HuffmanCodec
+from dahuffman.huffmancodec import PrefixCodec
 import math
+from einops import reduce
 
 class GaussianModel:
 
@@ -47,7 +49,7 @@ class GaussianModel:
         self.rotation_activation = torch.nn.functional.normalize
 
 
-    def __init__(self, model, rvq=True):
+    def __init__(self, model):
         self.active_sh_degree = 0
         self.max_sh_degree = 0
         self._xyz = torch.empty(0)
@@ -63,11 +65,10 @@ class GaussianModel:
         self.spatial_lr_scale = 0
         self.setup_functions()
         
-        if rvq:
-            self.vq_scale = ResidualVQ(dim = 3, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
-            self.vq_rot = ResidualVQ(dim = 4, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
-            self.rvq_bit = math.log2(model.rvq_size)
-            self.rvq_num = model.rvq_num
+        self.vq_scale = ResidualVQ(dim = 3, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
+        self.vq_rot = ResidualVQ(dim = 4, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
+        self.rvq_bit = math.log2(model.rvq_size)
+        self.rvq_num = model.rvq_num
         self.recolor = tcnn.Encoding(
                  n_input_dims=3,
                  encoding_config={
@@ -251,11 +252,107 @@ class GaussianModel:
         el = PlyElement.describe(elements, 'vertex')
         PlyData([el]).write(path)
 
+    def save_npz(self, path):
+        mkdir_p(os.path.dirname(path))
+
+        save_dict = dict()
+        
+        save_dict["xyz"] = self._xyz.detach().cpu().half().numpy()
+        save_dict["opacity"] = self._opacity.detach().cpu().half().numpy()
+        save_dict["scale"] = np.packbits(np.unpackbits(self.sca_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=6, bitorder='little').flatten(), axis=None)
+        save_dict["rotation"] = np.packbits(np.unpackbits(self.rot_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=6, bitorder='little').flatten(), axis=None)
+        save_dict["hash"] = self.recolor.params.cpu().half().numpy()
+        save_dict["mlp"] = self.mlp_head.params.cpu().half().numpy()
+        save_dict["codebook_scale"] = self.vq_scale.cpu().state_dict()
+        save_dict["codebook_rotation"] = self.vq_rot.cpu().state_dict()
+        save_dict["rvq_info"] = np.array([int(self.rvq_num), int(self.rvq_bit)])
+        
+        np.savez(path, **save_dict)
+        
+    def save_npz_pp(self, path):
+        mkdir_p(os.path.dirname(path))
+
+        save_dict = dict()
+        
+        save_dict["xyz"] = self._xyz.detach().cpu().half().numpy()
+        save_dict["opacity"] = np.frombuffer(self.huf_opa, dtype=np.uint8)
+        save_dict["scale"] = np.frombuffer(self.huf_sca, dtype=np.uint8)
+        save_dict["rotation"] = np.frombuffer(self.huf_rot, dtype=np.uint8)
+        save_dict["hash"] = np.frombuffer(self.huf_hash, dtype=np.uint8)
+        save_dict["mlp"] = self.mlp_head.params.cpu().half().numpy()
+        save_dict["huftable_opacity"] = self.tab_opa
+        save_dict["huftable_scale"] = self.tab_sca
+        save_dict["huftable_rotation"] = self.tab_rot
+        save_dict["huftable_hash"] = self.tab_hash
+        save_dict["codebook_scale"] = self.vq_scale.cpu().state_dict()
+        save_dict["codebook_rotation"] = self.vq_rot.cpu().state_dict()
+        save_dict["minmax_opacity"] = self.minmax_opa.numpy()
+        save_dict["minmax_hash"] = self.minmax_hash.numpy()
+        save_dict["rvq_info"] = np.array([int(self.rvq_num), int(self.rvq_bit)])
+        
+        np.savez_compressed(path+"_pp", **save_dict)
+
     def reset_opacity(self):
         opacities_new = inverse_sigmoid(torch.min(self.get_opacity, torch.ones_like(self.get_opacity)*0.01))
         optimizable_tensors = self.replace_tensor_to_optimizer(opacities_new, "opacity")
         self._opacity = optimizable_tensors["opacity"]
 
+    def load_model(self, path):
+        if os.path.isfile(path + '_pp.npz'):
+            path = path + '_pp.npz'
+            load_dict = np.load(path, allow_pickle=True)
+
+            codec = PrefixCodec(load_dict["huftable_opacity"].item())
+            opacity = torch.tensor(codec.decode(load_dict["opacity"]))
+
+            codec = PrefixCodec(load_dict["huftable_scale"].item())
+            scale = codec.decode(load_dict["scale"])
+
+            codec = PrefixCodec(load_dict["huftable_rotation"].item())
+            rotation = codec.decode(load_dict["rotation"])
+
+            codec = PrefixCodec(load_dict["huftable_hash"].item())
+            hashgrid = torch.tensor(codec.decode(load_dict["hash"]))
+
+            opacity = (float(load_dict["minmax_opacity"][1]) - float(load_dict["minmax_opacity"][0]))*opacity/255.0 + float(load_dict["minmax_opacity"][0])
+            hashgrid = (float(load_dict["minmax_hash"][1]) - float(load_dict["minmax_hash"][0]))*hashgrid/255.0 + float(load_dict["minmax_hash"][0])
+
+            self.vq_scale.load_state_dict(load_dict["codebook_scale"].item())
+            self.vq_rot.load_state_dict(load_dict["codebook_rotation"].item())
+            scale_codes = self.vq_scale.get_codes_from_indices(torch.tensor(scale).cuda().reshape(-1,1,load_dict["rvq_info"][0]))
+            scale = self.vq_scale.project_out(reduce(scale_codes, 'q ... -> ...', 'sum'))
+            rotation_codes = self.vq_rot.get_codes_from_indices(torch.tensor(rotation).cuda().reshape(-1,1,load_dict["rvq_info"][0]))
+            rotation = self.vq_rot.project_out(reduce(rotation_codes, 'q ... -> ...', 'sum'))
+
+            self._xyz = nn.Parameter(torch.from_numpy(load_dict["xyz"]).cuda().float().requires_grad_(True))
+            self._opacity = nn.Parameter(opacity.cuda().reshape(-1,1).float().requires_grad_(True))
+            self._scaling = nn.Parameter(scale.squeeze(1).requires_grad_(True))
+            self._rotation = nn.Parameter(rotation.squeeze(1).requires_grad_(True))
+            self.recolor.params = nn.Parameter(hashgrid.cuda().half().requires_grad_(True))
+            self.mlp_head.params = nn.Parameter(torch.from_numpy(load_dict["mlp"]).cuda().half().requires_grad_(True))
+        elif os.path.isfile(path + '.npz'):
+            path = path + '.npz'
+            load_dict = np.load(path, allow_pickle=True)
+
+            scale = np.packbits(np.unpackbits(load_dict["scale"], axis=None)[:load_dict["xyz"].shape[0]*load_dict["rvq_info"][0]*load_dict["rvq_info"][1]].reshape(-1, load_dict["rvq_info"][1]), axis=-1, bitorder='little')
+            rotation = np.packbits(np.unpackbits(load_dict["rotation"], axis=None)[:load_dict["xyz"].shape[0]*load_dict["rvq_info"][0]*load_dict["rvq_info"][1]].reshape(-1, load_dict["rvq_info"][1]), axis=-1, bitorder='little')
+
+            self.vq_scale.load_state_dict(load_dict["codebook_scale"].item())
+            self.vq_rot.load_state_dict(load_dict["codebook_rotation"].item())
+            scale_codes = self.vq_scale.get_codes_from_indices(torch.from_numpy(scale).cuda().reshape(-1,1,load_dict["rvq_info"][0]).long())
+            scale = self.vq_scale.project_out(reduce(scale_codes, 'q ... -> ...', 'sum'))
+            rotation_codes = self.vq_rot.get_codes_from_indices(torch.from_numpy(rotation).cuda().reshape(-1,1,load_dict["rvq_info"][0]).long())
+            rotation = self.vq_rot.project_out(reduce(rotation_codes, 'q ... -> ...', 'sum'))
+
+            self._xyz = nn.Parameter(torch.from_numpy(load_dict["xyz"]).cuda().float().requires_grad_(True))
+            self._opacity = nn.Parameter(torch.from_numpy(load_dict["opacity"]).reshape(-1,1).cuda().float().requires_grad_(True))
+            self._scaling = nn.Parameter(scale.squeeze(1).requires_grad_(True))
+            self._rotation = nn.Parameter(rotation.squeeze(1).requires_grad_(True))
+            self.recolor.params = nn.Parameter(torch.from_numpy(load_dict["hash"]).cuda().half().requires_grad_(True))
+            self.mlp_head.params = nn.Parameter(torch.from_numpy(load_dict["mlp"]).cuda().half().requires_grad_(True))
+        else:
+            self.load_ply(path+".ply")
+            
     def load_ply(self, path):
         plydata = PlyData.read(path)
 
@@ -432,13 +529,12 @@ class GaussianModel:
     def post_quant(self, param, prune=False):
         max_val = torch.amax(param)
         min_val = torch.amin(param)
-        param = (param - min_val)/(max_val - min_val)
-        quant = torch.round(param * 255.0) / 255.0
-        out = (max_val - min_val)*quant + min_val
         if prune:
-            quant = quant*(torch.abs(out) > 0.1)
-            out = out*(torch.abs(out) > 0.1)
-        return torch.nn.Parameter(out), quant
+            param = param*(torch.abs(param) > 0.1)
+        param = (param - min_val)/(max_val - min_val)
+        quant = torch.round(param * 255.0)
+        out = (max_val - min_val)*quant/255.0 + min_val
+        return torch.nn.Parameter(out), quant, torch.tensor([min_val, max_val])
     
     def huffman_encode(self, param):
         input_code_list = param.view(-1).tolist()
@@ -454,17 +550,19 @@ class GaussianModel:
         for num, freq in num_freq.items():
             total_bits += freq * sym_bit_dict[num]
         total_mb = total_bits/8/10**6
-        return total_mb
-
+        
+        return total_mb, codec.encode(input_code_list), codec.get_code_table()
+        
     def final_prune(self, compress=False):
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
+
         self._xyz = self._xyz.clone().half().float()
-        self._scaling, sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))
-        self._rotation, rot_idx, _ = self.vq_rot(self.get_rotation.unsqueeze(1))
+        self._scaling, self.sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))
+        self._rotation, self.rot_idx, _ = self.vq_rot(self.get_rotation.unsqueeze(1))
         self._scaling = self._scaling.squeeze()
         self._rotation = self._rotation.squeeze()
-        
+
         position_mb = self._xyz.shape[0]*3*16/8/10**6
         scale_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6 + 2**self.rvq_bit*self.rvq_num*3*32/8/10**6
         rotation_mb = self._xyz.shape[0]*self.rvq_bit*self.rvq_num/8/10**6 + 2**self.rvq_bit*self.rvq_num*4*32/8/10**6
@@ -476,13 +574,15 @@ class GaussianModel:
         mb_str = "Storage\nposition: "+str(position_mb)+"\nscale: "+str(scale_mb)+"\nrotation: "+str(rotation_mb)+"\nopacity: "+str(opacity_mb)+"\nhash: "+str(hash_mb)+"\nmlp: "+str(mlp_mb)+"\ntotal: "+str(sum_mb)+" MB"
         
         if compress:
-            self._opacity, quant_opa = self.post_quant(self.get_opacity)
-            self.recolor.params, quant_hash = self.post_quant(self.recolor.params, True)
+            self._opacity, self.quant_opa, self.minmax_opa = self.post_quant(self.get_opacity)
+            self.recolor.params, self.quant_hash, self.minmax_hash = self.post_quant(self.recolor.params, True)
         
-            scale_mb = self.huffman_encode(sca_idx) + 2**self.rvq_bit*self.rvq_num*3*32/8/10**6
-            rotation_mb = self.huffman_encode(rot_idx) + 2**self.rvq_bit*self.rvq_num*4*32/8/10**6
-            opacity_mb = self.huffman_encode(quant_opa)
-            hash_mb = self.huffman_encode(quant_hash)
+            scale_mb, self.huf_sca, self.tab_sca = self.huffman_encode(self.sca_idx) 
+            scale_mb += 2**self.rvq_bit*self.rvq_num*3*32/8/10**6
+            rotation_mb, self.huf_rot, self.tab_rot = self.huffman_encode(self.rot_idx)
+            rotation_mb += 2**self.rvq_bit*self.rvq_num*4*32/8/10**6
+            opacity_mb, self.huf_opa, self.tab_opa = self.huffman_encode(self.quant_opa)
+            hash_mb, self.huf_hash, self.tab_hash = self.huffman_encode(self.quant_hash)
             mlp_mb = self.mlp_head.params.shape[0]*16/8/10**6
             sum_mb = position_mb+scale_mb+rotation_mb+opacity_mb+hash_mb+mlp_mb
             
