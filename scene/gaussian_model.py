@@ -259,8 +259,8 @@ class GaussianModel:
         
         save_dict["xyz"] = self._xyz.detach().cpu().half().numpy()
         save_dict["opacity"] = self._opacity.detach().cpu().half().numpy()
-        save_dict["scale"] = np.packbits(np.unpackbits(self.sca_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=6, bitorder='little').flatten(), axis=None)
-        save_dict["rotation"] = np.packbits(np.unpackbits(self.rot_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=6, bitorder='little').flatten(), axis=None)
+        save_dict["scale"] = np.packbits(np.unpackbits(self.sca_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=int(self.rvq_bit), bitorder='little').flatten(), axis=None)
+        save_dict["rotation"] = np.packbits(np.unpackbits(self.rot_idx.unsqueeze(-1).cpu().numpy().astype(np.uint8), axis=-1, count=int(self.rvq_bit), bitorder='little').flatten(), axis=None)
         save_dict["hash"] = self.recolor.params.cpu().half().numpy()
         save_dict["mlp"] = self.mlp_head.params.cpu().half().numpy()
         save_dict["codebook_scale"] = self.vq_scale.cpu().state_dict()
