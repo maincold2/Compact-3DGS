@@ -65,8 +65,8 @@ class GaussianModel:
         self.spatial_lr_scale = 0
         self.setup_functions()
         
-        self.vq_scale = ResidualVQ(dim = 3, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
-        self.vq_rot = ResidualVQ(dim = 4, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, decay = 0.8, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1).cuda()
+        self.vq_scale = ResidualVQ(dim = 3, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1, ema_update = False, learnable_codebook=True, in_place_codebook_optimizer=lambda *args, **kwargs: torch.optim.Adam(*args, **kwargs, lr=0.0001)).cuda()
+        self.vq_rot = ResidualVQ(dim = 4, codebook_size = model.rvq_size, num_quantizers = model.rvq_num, commitment_weight = 0., kmeans_init = True, kmeans_iters = 1, ema_update = False, learnable_codebook=True, in_place_codebook_optimizer=lambda *args, **kwargs: torch.optim.Adam(*args, **kwargs, lr=0.0001)).cuda()
         self.rvq_bit = math.log2(model.rvq_size)
         self.rvq_num = model.rvq_num
         self.recolor = tcnn.Encoding(
@@ -182,10 +182,6 @@ class GaussianModel:
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
 
         other_params = []
-        for params in self.vq_rot.parameters():
-            other_params.append(params)
-        for params in self.vq_scale.parameters():
-            other_params.append(params)
         for params in self.recolor.parameters():
             other_params.append(params)
         for params in self.mlp_head.parameters():
@@ -561,6 +557,11 @@ class GaussianModel:
     def final_prune(self, compress=False):
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
+
+        for m in self.vq_scale.layers:
+            m.training = False
+        for m in self.vq_rot.layers: 
+            m.training = False
 
         self._xyz = self._xyz.clone().half().float()
         self._scaling, self.sca_idx, _ = self.vq_scale(self.get_scaling.unsqueeze(1))

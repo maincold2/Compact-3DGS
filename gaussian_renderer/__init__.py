@@ -53,8 +53,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     means3D = pc.get_xyz
     means2D = screenspace_points
     cov3D_precomp = None
-    l_vqsca=0
-    l_vqrot=0
+
     if itr == -1:
         scales = pc._scaling
         rotations = pc._rotation
@@ -67,14 +66,12 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     else:
         mask = ((torch.sigmoid(pc._mask) > 0.01).float()- torch.sigmoid(pc._mask)).detach() + torch.sigmoid(pc._mask)
         if rvq_iter:
-            scales, _, l_vqsca = pc.vq_scale(pc.get_scaling.unsqueeze(0))
-            rotations, _, l_vqrot = pc.vq_rot(pc.get_rotation.unsqueeze(0))
+            scales = pc.vq_scale(pc.get_scaling.unsqueeze(0))[0]
+            rotations = pc.vq_rot(pc.get_rotation.unsqueeze(0))[0]
             scales = scales.squeeze()*mask
             rotations = rotations.squeeze()
             opacity = pc.get_opacity*mask
 
-            l_vqsca = torch.sum(l_vqsca)
-            l_vqrot = torch.sum(l_vqrot)
         else:
             scales = pc.get_scaling*mask
             rotations = pc.get_rotation
@@ -101,5 +98,5 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     return {"render": rendered_image,
             "viewspace_points": screenspace_points,
             "visibility_filter" : radii > 0,
-            "radii": radii,
-            "vqloss": l_vqsca+l_vqrot}
+            "radii": radii
+            }
