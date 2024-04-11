@@ -25,7 +25,7 @@ from icecream import ic
 import copy
 
 from utils.graphics_utils import getWorld2View2
-from utils.pose_utils import generate_ellipse_path, generate_spherical_sample_path, generate_spiral_path, generate_spherify_path,  gaussain_poses, circular_poses
+from utils.pose_utils import generate_ellipse_path, generate_spherical_sample_path, generate_spiral_path, generate_spherify_path,  gaussian_poses, circular_poses
 # import stepfun 
 
 
