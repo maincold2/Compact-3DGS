@@ -86,9 +86,10 @@ class Scene:
     def save(self, iteration, compress=False, store=False):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
         if store:
-            self.gaussians.save_npz(os.path.join(point_cloud_path, "point_cloud"))
             if compress:
                 self.gaussians.save_npz_pp(os.path.join(point_cloud_path, "point_cloud"))
+            else:
+                self.gaussians.save_npz(os.path.join(point_cloud_path, "point_cloud"))
         else:
             self.gaussians.save_ply(os.path.join(point_cloud_path, "point_cloud.ply"))
             torch.save(torch.nn.ModuleList([self.gaussians.recolor, self.gaussians.mlp_head]).state_dict(), os.path.join(point_cloud_path, "point_cloud.pth")) 
