@@ -89,10 +89,11 @@ Currently, to use the viewer, you have two options: either bypass the neural fie
 
 ## BibTeX
 ```
-@article{lee2023compact,
-title={Compact 3D Gaussian Representation for Radiance Field},
-author={Lee, Joo Chan and Rho, Daniel and Sun, Xiangyu and Ko, Jong Hwan and Park, Eunbyung},
-journal={arXiv preprint arXiv:2311.13681},
-year={2023}
+@InProceedings{lee2024c3dgs,
+    author    = {Lee, Joo Chan and Rho, Daniel and Sun, Xiangyu and Ko, Jong Hwan and Park, Eunbyung},
+    title     = {Compact 3D Gaussian Representation for Radiance Field},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    year      = {2024},
+    pages     = {21719-21728}
 }
 ```
