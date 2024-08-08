@@ -10,13 +10,13 @@ Our code is based on [3D Gaussian Splatting](https://github.com/graphdeco-inria/
 
 We place a specific emphasis on two key objectives: reducing the number of Gaussian points without sacrificing performance and compressing the Gaussian attributes. To this end, we propose a learnable mask strategy that significantly reduces the number of Gaussians while preserving high performance. In addition, we propose a compact but effective representation of view-dependent color by employing a grid-based neural field rather than relying on spherical harmonics. Finally, we learn codebooks to compactly represent the geometric attributes of Gaussian by vector quantization.
 
-### Update
+## Update
 
 #### Aug. 2024
 - We added another post-processing technique: sorting Gaussians in morton order like in [Compressed 3DGS](https://github.com/graphdeco-inria/gaussian-splatting). With --comp option, we can achieve a further 10% compression.
 - We extended the compact 3D Gaussian splatting for dynamic scene representation.
 
-Please check out our [extended paper](https://arxiv.org/abs/2408.03822) and [codes for dynamic scenes](https://arxiv.org/abs/2408.03822).
+Please check out our [extended paper](https://arxiv.org/abs/2408.03822) and [codes for dynamic scenes](https://github.com/maincold2/Dynamic_C3DGS).
 
 <img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/tab1.png?raw=true" />
 
