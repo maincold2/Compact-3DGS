@@ -1,7 +1,7 @@
 # Compact 3D Gaussian Representation for Radiance Field (CVPR 2024 Highlight)
 ### Joo Chan Lee, Daniel Rho, Xiangyu Sun, Jong Hwan Ko, and Eunbyung Park
 
-### [[Project Page](https://maincold2.github.io/c3dgs/)] [[Paper(arxiv)](https://arxiv.org/abs/2311.13681)]
+### [[Project Page](https://maincold2.github.io/c3dgs/)] [[Paper(arxiv)](https://arxiv.org/abs/2311.13681)]  [[Extended Paper](https://arxiv.org/abs/2408.03822)]
 
 Our code is based on [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting).
 
@@ -11,16 +11,23 @@ Our code is based on [3D Gaussian Splatting](https://github.com/graphdeco-inria/
 We place a specific emphasis on two key objectives: reducing the number of Gaussian points without sacrificing performance and compressing the Gaussian attributes. To this end, we propose a learnable mask strategy that significantly reduces the number of Gaussians while preserving high performance. In addition, we propose a compact but effective representation of view-dependent color by employing a grid-based neural field rather than relying on spherical harmonics. Finally, we learn codebooks to compactly represent the geometric attributes of Gaussian by vector quantization.
 
 ### Update
+
+#### Aug. 2024
+- We added another post-processing technique: sorting Gaussians in morton order like in [Compressed 3DGS](https://github.com/graphdeco-inria/gaussian-splatting). With --comp option, we can achieve a further 10% compression.
+- We extended the compact 3D Gaussian splatting for dynamic scene representation.
+
+Please check out our [extended paper](https://arxiv.org/abs/2408.03822) and [codes for dynamic scenes](https://arxiv.org/abs/2408.03822).
+
+<img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/tab1.png?raw=true" />
+
+#### Apr. 2024
+We updated saving codes for the result file (.npz) reflecting the actual storage.
+With --store_npz option, the code will generate point_cloud.npz or point_cloud_pp.npz file according to --comp option, rather than the .ply file. The storage of these files would be almost the same as the estimations in the 'Storage' file (slightly reduced storage for point_cloud_pp.npz due to the npz compression). 
+
+#### Feb. 2024
 We additionally implement straightforward post-processing techniques on the model attributes: 1) Applying 8-bit min-max quantization to opacity and hash grid parameters. 2) Pruning hash grid parameters with values below 0.1. 3) Applying Huffman encoding on the quantized opacity and hash parameters, and R-VQ indices.
 
 As a result, our model is further downsized by over 40 \% regardless of dataset, achieving more than 25x compression from 3DGS, while maintaining high performance.
-
-Mip-NeRF 360 result:
-<img src="https://github.com/maincold2/maincold2.github.io/blob/master/c3dgs/images/size_pp.png?raw=true" />
-
-#### 4/4/2024
-We updated saving codes for the result file (.npz) reflecting the actual storage.
-With --store_npz option, the code will generate point_cloud.npz or point_cloud_pp.npz file according to --comp option, rather than the .ply file. The storage of these files would be almost the same as the estimations in the 'Storage' file (slightly reduced storage for point_cloud_pp.npz due to the npz compression). 
 
 
 ## Setup

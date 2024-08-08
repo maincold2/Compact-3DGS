@@ -20,6 +20,7 @@ from utils.sh_utils import RGB2SH
 from simple_knn._C import distCUDA2
 from utils.graphics_utils import BasicPointCloud
 from utils.general_utils import strip_symmetric, build_scaling_rotation
+from utils.general_utils import splitBy3, mortonEncode
 
 from vector_quantize_pytorch import VectorQuantize, ResidualVQ
 import tinycudann as tcnn
@@ -557,6 +558,8 @@ class GaussianModel:
     def final_prune(self, compress=False):
         prune_mask = (torch.sigmoid(self._mask) <= 0.01).squeeze()
         self.prune_points(prune_mask)
+        if compress:
+            self.sort_morton()
 
         for m in self.vq_scale.layers:
             m.training = False
@@ -631,3 +634,17 @@ class GaussianModel:
             x[mask] = (2 - 1 / mag[mask]) * (x[mask] / mag[mask])
             x = x / 4 + 0.5  # [-inf, inf] is at [0, 1]
             return x
+
+    def sort_morton(self):
+        with torch.no_grad():
+            xyz_q = (
+                (2**21 - 1)
+                * (self._xyz - self._xyz.min(0).values)
+                / (self._xyz.max(0).values - self._xyz.min(0).values)
+            ).long()
+            order = mortonEncode(xyz_q).sort().indices
+            
+            self._xyz = nn.Parameter(self._xyz[order], requires_grad=True)
+            self._opacity = nn.Parameter(self._opacity[order], requires_grad=True)
+            self._scaling = nn.Parameter(self._scaling[order], requires_grad=True)
+            self._rotation = nn.Parameter(self._rotation[order], requires_grad=True)
