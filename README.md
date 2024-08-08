@@ -13,7 +13,7 @@ We place a specific emphasis on two key objectives: reducing the number of Gauss
 ## Update
 
 #### Aug. 2024
-- We added another post-processing technique: sorting Gaussians in morton order like in [Compressed 3DGS](https://github.com/graphdeco-inria/gaussian-splatting). With --comp option, we can achieve a further 10% compression.
+- We added another post-processing technique: sorting Gaussians in morton order like in [Compressed 3DGS](https://github.com/graphdeco-inria/gaussian-splatting). With --comp and --store_npz options, we can achieve a further 10% compression (the size of point_cloud_pp.npz file).
 - We extended the compact 3D Gaussian splatting for dynamic scene representation.
 
 Please check out our [extended paper](https://arxiv.org/abs/2408.03822) and [codes for dynamic scenes](https://github.com/maincold2/Dynamic_C3DGS).
